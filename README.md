@@ -4,6 +4,14 @@
 
 AwakeKit 通过 IOKit 电源断言（power assertion）阻止系统进入空闲休眠，支持定时自动结束、接通电源时的增强防休眠、登录时启动与状态通知，无需常驻后台守护进程。
 
+## 下载安装
+
+前往 [Releases 最新版](https://github.com/peninsulagiftbox/AwakeKit/releases/latest) 下载 `AwakeKit-<版本号>.dmg`，打开后将 AwakeKit 拖入 Applications 文件夹即可完成安装。
+
+所有历史版本均保留在 [Releases 列表](https://github.com/peninsulagiftbox/AwakeKit/releases) 中，需要回退旧版本时按版本号下载对应的 DMG 即可。
+
+> 安装包使用 ad-hoc 签名。首次打开若提示"无法验证开发者"，请右键 App 选择"打开"，或前往 系统设置 → 隐私与安全性 点击"仍要打开"。
+
 ## 功能
 
 - **一键保持唤醒**：从菜单栏面板开启/关闭，支持 15 / 30 / 45 分钟、1 / 4 / 8 小时和一直保持，剩余时间实时倒计时显示。
@@ -28,7 +36,7 @@ swift build
 # 组装 AwakeKit.app（含图标、Info.plist 与 ad-hoc 签名），输出到 dist/
 Scripts/make-app.sh
 
-# 制作 DMG 安装镜像
+# 制作 DMG 安装镜像（输出 dist/AwakeKit-<版本号>.dmg）
 Scripts/make-dmg.sh
 
 # 运行测试

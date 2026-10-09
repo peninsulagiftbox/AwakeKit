@@ -16,13 +16,13 @@ APP_NAME="AwakeKit"
 APP="$ROOT/dist/$APP_NAME.app"
 STAGING="$ROOT/dist/.dmg-staging"
 VERIFY="$ROOT/dist/.dmg-verify"
-DMG="$ROOT/dist/$APP_NAME.dmg"
 
 cd "$ROOT"
 
 bash "$ROOT/Scripts/make-app.sh" "$CONFIG"
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo "1.0")"
+DMG="$ROOT/dist/$APP_NAME-$VERSION.dmg"
 
 echo "==> Staging DMG contents"
 rm -rf "$STAGING"
