@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Testing
 import IOKit.pwr_mgt
 @testable import AwakeKit
@@ -169,6 +170,8 @@ private final class ManagerFixture {
     var held: [IOPMAssertionID: String] = [:]
     var processes: [StubProcess] = []
     var notifications: [(title: String, body: String)] = []
+    var currentDate: Date?
+    let wakeNotificationCenter = NotificationCenter()
     var manager: AwakeKitManager!
 
     init(monitorsPowerChanges: Bool = false) {
@@ -202,6 +205,8 @@ private final class ManagerFixture {
                 return process
             },
             monitorsPowerChanges: monitorsPowerChanges,
+            now: { [unowned self] in currentDate ?? Date() },
+            wakeNotificationCenter: wakeNotificationCenter,
             postNotification: { [unowned self] title, body in
                 notifications.append((title, body))
             }
@@ -354,6 +359,71 @@ func changingDurationWhileActiveReplansCountdown() async throws {
 }
 
 // MARK: - Status notifications
+
+@MainActor @Test(arguments: [false, true])
+func wakingAfterDeadlineEndsBatterySession(fallback: Bool) {
+    let fixture = ManagerFixture()
+    defer { fixture.cleanup() }
+    fixture.failDisplay = fallback
+    fixture.currentDate = Date()
+    let manager = fixture.manager!
+    manager.activate()
+    let deadline = manager.expiryDate!
+
+    fixture.onAC = false
+    manager.handlePowerSourceChange()
+    #expect(manager.isActive)
+    #expect(!manager.systemSleepPreventionActive)
+
+    // Advance wall time without running the timer, as when the Mac is asleep.
+    fixture.currentDate = deadline.addingTimeInterval(1)
+    fixture.wakeNotificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+    #expect(!manager.isActive)
+    #expect(manager.expiryDate == nil)
+    #expect(manager.autoOffAt == fixture.currentDate)
+    #expect(fixture.held.isEmpty)
+    #expect(fixture.notifications.count == 2)
+    if fallback {
+        #expect(fixture.processes[0].terminateCount == 1)
+    }
+    fixture.wakeNotificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+    #expect(fixture.notifications.count == 2)
+}
+
+@MainActor @Test
+func wakingBeforeDeadlinePreservesOriginalDeadline() {
+    let fixture = ManagerFixture()
+    defer { fixture.cleanup() }
+    fixture.currentDate = Date()
+    fixture.manager.activate()
+    let deadline = fixture.manager.expiryDate!
+    fixture.currentDate = deadline.addingTimeInterval(-60)
+    fixture.wakeNotificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+    #expect(fixture.manager.isActive)
+    #expect(fixture.manager.expiryDate == deadline)
+    #expect(fixture.manager.autoOffAt == nil)
+
+    fixture.currentDate = deadline
+    fixture.manager.handlePowerSourceChange()
+    #expect(!fixture.manager.isActive)
+    #expect(fixture.held.isEmpty)
+}
+
+@MainActor @Test
+func wakingDoesNotEndInfiniteSession() {
+    let fixture = ManagerFixture()
+    defer { fixture.cleanup() }
+    fixture.currentDate = Date()
+    fixture.manager.select(.infinite)
+    fixture.manager.activate()
+    fixture.onAC = false
+    fixture.currentDate = fixture.currentDate!.addingTimeInterval(86400)
+    fixture.wakeNotificationCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+    #expect(fixture.manager.isActive)
+    #expect(fixture.manager.expiryDate == nil)
+    #expect(fixture.manager.autoOffAt == nil)
+    #expect(!fixture.manager.systemSleepPreventionActive)
+}
 
 @MainActor @Test
 func notificationsPostOnTransitionsWhenEnabled() {

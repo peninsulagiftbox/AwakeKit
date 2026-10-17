@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Combine
 import IOKit.pwr_mgt
 import UserNotifications
@@ -119,6 +120,9 @@ final class AwakeKitManager: ObservableObject {
     private let makeProcess: () -> Process
     private let postNotification: (String, String) -> Void
     private let monitorsPowerChanges: Bool
+    private let now: () -> Date
+    private let wakeNotificationCenter: NotificationCenter
+    private var wakeObserver: NSObjectProtocol?
     /// IOPS notification run-loop source, installed on first activation.
     private var powerSourceSource: CFRunLoopSource?
     private var caffeinateProcess: Process?
@@ -129,6 +133,8 @@ final class AwakeKitManager: ObservableObject {
         readACPower: @escaping () -> Bool = { PowerSource.isOnACPower },
         makeProcess: @escaping () -> Process = { Process() },
         monitorsPowerChanges: Bool = true,
+        now: @escaping () -> Date = Date.init,
+        wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         postNotification: @escaping (String, String) -> Void = StatusNotifier.post
     ) {
         self.defaults = defaults
@@ -137,14 +143,26 @@ final class AwakeKitManager: ObservableObject {
         self.makeProcess = makeProcess
         self.postNotification = postNotification
         self.monitorsPowerChanges = monitorsPowerChanges
+        self.now = now
+        self.wakeNotificationCenter = wakeNotificationCenter
         systemSleepPreventionEnabled = defaults.bool(forKey: Self.systemSleepPreventionDefaultsKey)
         onACPower = readACPower()
         let savedID = defaults.string(forKey: Self.selectedDurationDefaultsKey)
         selectedDuration = DurationOption.catalog.first { $0.id == savedID } ?? .standard
         statusNotificationsEnabled = defaults.object(forKey: Self.statusNotificationsDefaultsKey) as? Bool ?? true
+        wakeObserver = wakeNotificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.handlePowerSourceChange()
+            }
+        }
     }
 
     isolated deinit {
+        if let wakeObserver {
+            wakeNotificationCenter.removeObserver(wakeObserver)
+        }
         if let source = powerSourceSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .defaultMode)
             CFRunLoopSourceInvalidate(source)
@@ -236,6 +254,9 @@ final class AwakeKitManager: ObservableObject {
 
     func handlePowerSourceChange() {
         onACPower = readACPower()
+        // Sleep can suspend Timer delivery. Reconcile the wall-clock deadline
+        // before re-acquiring an AC-only assertion after wake or a power change.
+        reconcileCountdown()
         updateSystemAssertion()
     }
 
@@ -311,13 +332,26 @@ final class AwakeKitManager: ObservableObject {
         cancelCountdown()
         guard let seconds = selectedDuration.seconds else { return }
 
-        expiryDate = Date().addingTimeInterval(seconds)
+        expiryDate = now().addingTimeInterval(seconds)
+        reconcileCountdown()
+    }
+
+    private func reconcileCountdown() {
+        guard isActive, let expiryDate else { return }
+        let currentDate = now()
+        let remaining = expiryDate.timeIntervalSince(currentDate)
+        guard remaining > 0 else {
+            autoOffAt = currentDate
+            deactivate()
+            return
+        }
+
+        expiryTimer?.invalidate()
         // The timer is scheduled on RunLoop.main, so the closure always runs
         // on the main thread and may assume MainActor isolation.
-        let timer = Timer(timeInterval: seconds, repeats: false) { [weak self] _ in
+        let timer = Timer(timeInterval: remaining, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.autoOffAt = Date()
-                self?.deactivate()
+                self?.reconcileCountdown()
             }
         }
         RunLoop.main.add(timer, forMode: .common)
