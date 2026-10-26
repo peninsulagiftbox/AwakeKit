@@ -309,8 +309,8 @@ final class AwakeKitManager: ObservableObject {
     // MARK: Duration
 
     /// Records the selected duration; while active it re-plans the countdown.
-    /// Selecting while inactive only records the choice — the master toggle
-    /// in the status card is what starts a session.
+    /// Selecting while inactive only records the choice — the settings'
+    /// default-duration picker uses this; the panel uses `selectAndActivate`.
     func select(_ option: DurationOption) {
         guard option.id != selectedDuration.id else { return }
         selectedDuration = option
@@ -318,6 +318,15 @@ final class AwakeKitManager: ObservableObject {
         if isActive {
             restartCountdown()
         }
+    }
+
+    /// Panel gesture: picking a duration also flips the master switch on, so
+    /// starting a session takes one click. While inactive this activates with
+    /// the picked duration (even the already-selected one); while active,
+    /// `select` re-plans the countdown and `activate` is a no-op.
+    func selectAndActivate(_ option: DurationOption) {
+        select(option)
+        activate()
     }
 
     // MARK: Countdown

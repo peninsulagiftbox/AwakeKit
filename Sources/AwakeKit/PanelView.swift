@@ -58,7 +58,7 @@ struct AwakeKitPanelView: View {
             DurationGrid(
                 options: DurationOption.catalog,
                 selected: manager.selectedDuration,
-                onSelect: { manager.select($0) }
+                onSelect: { manager.selectAndActivate($0) }
             )
             .padding(.top, 9)
 

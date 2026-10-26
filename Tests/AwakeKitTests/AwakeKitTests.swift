@@ -110,6 +110,50 @@ func selectingWhileInactiveOnlyRecordsChoice() {
     #expect(fixture.notifications.isEmpty)
 }
 
+@MainActor @Test
+func choosingDurationWhileInactiveStartsSession() {
+    let fixture = ManagerFixture()
+    defer { fixture.cleanup() }
+    let fortyFive = DurationOption.catalog.first { $0.id == "m45" }!
+    fixture.manager.selectAndActivate(fortyFive)
+    #expect(fixture.manager.isActive)
+    #expect(fixture.manager.selectedDuration.id == "m45")
+    #expect(fixture.manager.expiryDate != nil)
+    // Display assertion plus the extra AC system assertion (fixture default).
+    #expect(fixture.held.count == 2)
+    #expect(fixture.notifications.count == 1)
+}
+
+@MainActor @Test
+func choosingSelectedDurationWhileInactiveStillStarts() {
+    let fixture = ManagerFixture()
+    defer { fixture.cleanup() }
+    // The preselected 30 分钟 pill is already highlighted; clicking it still
+    // has to start the session, not act as a no-op.
+    fixture.manager.selectAndActivate(fixture.manager.selectedDuration)
+    #expect(fixture.manager.isActive)
+    #expect(fixture.manager.expiryDate != nil)
+    #expect(fixture.notifications.count == 1)
+}
+
+@MainActor @Test
+func choosingDurationWhileActiveOnlyReplansCountdown() {
+    let fixture = ManagerFixture()
+    defer { fixture.cleanup() }
+    let manager = fixture.manager!
+    manager.selectAndActivate(.infinite)
+    #expect(manager.isActive)
+    #expect(manager.expiryDate == nil)
+    #expect(fixture.notifications.count == 1)
+
+    let fourHours = DurationOption.catalog.first { $0.id == "h04" }!
+    manager.selectAndActivate(fourHours)
+    #expect(manager.isActive)
+    #expect(manager.expiryDate != nil)
+    // Switching duration mid-session must not fire a second start notification.
+    #expect(fixture.notifications.count == 1)
+}
+
 // MARK: - Power and assertion lifecycle (no real power assertions or children)
 
 @Test(arguments: [
