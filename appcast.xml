@@ -1,9 +1,25 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
   <channel>
     <title>AwakeKit</title>
     <link>https://github.com/peninsulagiftbox/AwakeKit</link>
     <description>AwakeKit 更新推送</description>
     <language>zh-cn</language>
+    <item>
+      <title>AwakeKit 1.0.3</title>
+      <pubDate>Tue, 27 Oct 2026 16:12:20 GMT</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
+      <sparkle:os>macos</sparkle:os>
+      <enclosure url="https://github.com/peninsulagiftbox/AwakeKit/releases/download/v1.0.3/AwakeKit-1.0.3.dmg" type="application/x-bzip2" length="1199616" sparkle:edSignature="UAsK6xvAdmgCIdAroM4Nn59pl2FYk8rMy3JBNkNW4jc6kGFql9YLaNIy8OheIyifI7eiC5MhgCqZ/Qd2Cj/uCw==" />
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <description>## 新增自动更新
+
+- 基于 [Sparkle](https://sparkle-project.org)：应用每小时检查新版本并弹窗提示一键安装
+- 菜单面板、状态栏右键菜单与主菜单（⌘U）均可手动检查更新
+- 新增 `Scripts/release.sh` 一条命令发版：构建签名 DMG、创建 GitHub Release 并推送 appcast
+
+&gt; 注意：1.0.2 及更早版本没有更新通道，需要手动安装一次 1.0.3，之后即可自动收到更新。</description>
+    </item>
   </channel>
 </rss>
