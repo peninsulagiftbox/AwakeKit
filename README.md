@@ -8,6 +8,8 @@ AwakeKit 通过 IOKit 电源断言（power assertion）阻止系统进入空闲�
 
 前往 [Releases 最新版](https://github.com/peninsulagiftbox/AwakeKit/releases/latest) 下载 `AwakeKit-<版本号>.dmg`，打开后将 AwakeKit 拖入 Applications 文件夹即可完成安装。
 
+**1.0.3 起内置自动更新**：应用每小时检查一次新版本，发现后弹窗提示并可一键安装，无需再手动下载 DMG。1.0.2 及更早版本没有更新通道，需要手动安装一次 1.0.3+ 之后才能收到后续推送。
+
 所有历史版本均保留在 [Releases 列表](https://github.com/peninsulagiftbox/AwakeKit/releases) 中，需要回退旧版本时按版本号下载对应的 DMG 即可。
 
 > 安装包使用 ad-hoc 签名。首次打开若提示"无法验证开发者"，请右键 App 选择"打开"，或前往 系统设置 → 隐私与安全性 点击"仍要打开"。
@@ -15,6 +17,7 @@ AwakeKit 通过 IOKit 电源断言（power assertion）阻止系统进入空闲�
 ## 功能
 
 - **一键保持唤醒**：在菜单栏面板点击时长选项即直接开始（也可用主开关控制），支持 15 / 30 / 45 分钟、1 / 4 / 8 小时和一直保持，剩余时间实时倒计时显示。
+- **自动更新**（基于 [Sparkle](https://sparkle-project.org)）：每小时检查新版本，发现后提示安装；也可在菜单栏面板、右键菜单或主菜单（⌘U）手动检查。
 - **增强防休眠**（可选，仅接通电源时生效）：额外请求系统级防休眠断言，防止长时间无操作导致的系统睡眠；使用电池供电时自动释放。
 - **登录时启动**：基于 SMAppService（macOS 13+）注册登录项，无需手写 plist。
 - **状态通知**：开始/停止保持唤醒时发送系统通知，可关闭。
@@ -25,6 +28,11 @@ AwakeKit 通过 IOKit 电源断言（power assertion）阻止系统进入空闲�
 实现上优先使用 `IOPMAssertionCreateWithName` 创建防休眠断言；当 IOKit 断言创建失败时自动回退到 `caffeinate` 辅助进程（带 `-w` 绑定宿主进程 PID，应用意外退出时不会遗留孤儿断言）。
 
 ## 更新记录
+
+### 1.0.3
+
+- 新增基于 Sparkle 的自动更新：每小时检查新版本并提示安装，菜单面板、右键菜单与主菜单（⌘U）均可手动检查。
+- 新增 `Scripts/release.sh` 一条命令发版：构建签名 DMG、创建 GitHub Release 并推送 appcast，已安装的旧版应用自动收到更新提示。
 
 ### 1.0.2
 
@@ -53,11 +61,29 @@ Scripts/make-app.sh
 # 制作 DMG 安装镜像（输出 dist/AwakeKit-<版本号>.dmg）
 Scripts/make-dmg.sh
 
+# 发布新版本：改版本号、构建签名 DMG、创建 GitHub Release、推送 appcast
+Scripts/release.sh 1.0.4 "本次更新说明"
+
 # 运行测试
 swift test
 ```
 
-> 提示：登录时启动、状态通知等功能需要通过 `Scripts/make-app.sh` 组装的 `.app` 包运行；直接运行 `.build` 下的裸可执行文件时这些功能不可用。
+> 提示：登录时启动、状态通知、自动更新等功能需要通过 `Scripts/make-app.sh` 组装的 `.app` 包运行；直接运行 `.build` 下的裸可执行文件时这些功能不可用（面板中也不会出现"检查更新"入口）。
+
+## 更新推送
+
+自动更新基于 [Sparkle](https://sparkle-project.org) 实现：
+
+- **更新通道**：appcast 订阅源是仓库根目录的 `appcast.xml`，通过 `raw.githubusercontent.com` 直链读取（见 `Scripts/Info.plist` 中的 `SUFeedURL`）。应用每小时检查一次（`SUScheduledCheckInterval`），新版本默认弹窗提示安装；若想静默自动安装，在 Info.plist 加 `SUAutomaticallyUpdate = true`。
+- **签名校验**：DMG 使用 Sparkle 的 EdDSA 密钥签名，公钥固定在 Info.plist 的 `SUPublicEDKey`。签名密钥的私钥存放在本机登录钥匙串（"Sparkle EdDSA" 条目），**务必备份**：`.build/artifacts/sparkle/Sparkle/bin/generate_keys -x 私钥备份.txt` 导出后妥善保存；换机或重装系统后可用 `-i` 导入，丢失私钥将无法再向已装用户推送更新。
+- **发版流程**：保证工作区干净、在 main 分支、gh 已登录，然后执行：
+
+  ```bash
+  Scripts/release.sh 1.0.4 "更新说明文本"
+  ```
+
+  脚本会依次：写入版本号并递增 build（Sparkle 用 build 号判断新旧）→ 构建并签名 DMG → 提交、打 tag、推送 → 创建 GitHub Release 上传 DMG → 把新条目写入 appcast.xml 并推送。推送完成后，所有 1.0.3+ 用户会在一小时内收到更新提示。
+- **手动生成 appcast 条目**（如需绕过 release.sh）：`Scripts/update-appcast.py <版本> <build号> <签名> <长度> <说明> <DMG下载地址> <最低系统版本>`，签名用 `bin/sign_update dist/AwakeKit-<版本>.dmg` 生成。
 
 ## 许可证
 

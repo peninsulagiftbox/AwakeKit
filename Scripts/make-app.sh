@@ -47,6 +47,22 @@ xcrun vtool -set-build-version macos "$MIN_OS" "$SDK_VERSION" -replace \
 mv "$EXECUTABLE.sdk" "$EXECUTABLE"
 chmod +x "$EXECUTABLE"
 
+# Sparkle (auto-updates) is linked via @rpath from the SwiftPM artifact, so the
+# bundle must embed the framework itself and carry an rpath pointing at
+# Contents/Frameworks for dyld to resolve it at runtime.
+echo "==> Embedding Sparkle"
+SPARKLE_FW="$(find "$ROOT/.build/artifacts" -type d -name 'Sparkle.framework' -path '*macos*' | head -n1 || true)"
+if [ -z "$SPARKLE_FW" ]; then
+    echo "    Sparkle.framework not found under .build/artifacts; run 'swift build' first" >&2
+    exit 1
+fi
+mkdir -p "$APP/Contents/Frameworks"
+rm -rf "$APP/Contents/Frameworks/Sparkle.framework"
+ditto "$SPARKLE_FW" "$APP/Contents/Frameworks/Sparkle.framework"
+if ! otool -l "$EXECUTABLE" | grep -q '@executable_path/../Frameworks'; then
+    install_name_tool -add_rpath @executable_path/../Frameworks "$EXECUTABLE"
+fi
+
 # Ad-hoc identity ("-", the default) changes on every rebuild, so macOS treats
 # each new build as a modified app and resets SMAppService login-item approval.
 # Export CODESIGN_IDENTITY with a self-signed Keychain certificate name for a

@@ -24,8 +24,11 @@ struct AwakeKitPanelView: View {
     @ObservedObject var manager: AwakeKitManager
     /// Kept in sync by MenuPanelController so rows can drop stale hover state.
     var panelIsVisible: Bool = true
+    /// Sparkle ships only in the packaged bundle; bare .build runs hide the row.
+    var updatesAvailable: Bool = false
     var onSettings: () -> Void
     var onAbout: () -> Void
+    var onCheckUpdates: () -> Void
     var onQuit: () -> Void
 
     private var hasErrors: Bool {
@@ -66,6 +69,9 @@ struct AwakeKitPanelView: View {
 
             VStack(spacing: 2) {
                 MenuRow(title: "偏好设置", systemImage: "gearshape", action: onSettings)
+                if updatesAvailable {
+                    MenuRow(title: "检查更新", systemImage: "arrow.triangle.2.circlepath", action: onCheckUpdates)
+                }
                 MenuRow(title: "关于 AwakeKit", systemImage: "info.circle", action: onAbout)
                 MenuRow(title: "退出 AwakeKit", systemImage: "power", action: onQuit)
             }

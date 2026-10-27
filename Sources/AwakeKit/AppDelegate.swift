@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let manager = AwakeKitManager()
     private var panelController: MenuPanelController?
     private var settingsController: SettingsWindowController?
+    private var updatesController: UpdatesController?
     private var cancellables = Set<AnyCancellable>()
     private var refreshPending = false
     /// Kept open for the process lifetime; closing the handle drops the lock.
@@ -32,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         setupMainMenu()
         setupStatusItem()
+        updatesController = UpdatesController()
         setupPanel()
         observeState()
         autoOpenForDebug()
@@ -96,6 +98,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
         appMenu.addItem(.separator())
 
+        let checkUpdates = NSMenuItem(
+            title: "检查更新…",
+            action: #selector(checkForUpdatesFromMenu),
+            keyEquivalent: "u"
+        )
+        checkUpdates.target = self
+        appMenu.addItem(checkUpdates)
+        appMenu.addItem(.separator())
+
         let settings = NSMenuItem(title: "设置…", action: #selector(showSettingsFromMenu), keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(settings)
@@ -122,6 +133,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showSettingsFromMenu() {
         showSettings()
+    }
+
+    @objc private func checkForUpdatesFromMenu() {
+        checkForUpdates()
+    }
+
+    private func checkForUpdates() {
+        updatesController?.checkForUpdates()
     }
 
     // MARK: Status item
@@ -158,6 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupPanel() {
         let root = AwakeKitPanelView(
             manager: manager,
+            updatesAvailable: updatesController?.isAvailable ?? false,
             onSettings: { [weak self] in
                 self?.panelController?.close()
                 self?.showSettings()
@@ -166,6 +186,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.panelController?.close()
                 NSApp.activate(ignoringOtherApps: true)
                 NSApp.orderFrontStandardAboutPanel(nil)
+            },
+            onCheckUpdates: { [weak self] in
+                self?.panelController?.close()
+                self?.checkForUpdates()
             },
             onQuit: { NSApp.terminate(nil) }
         )
@@ -201,8 +225,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         quit.target = NSApp
 
+        let checkUpdates = NSMenuItem(
+            title: "检查更新…",
+            action: #selector(checkForUpdatesFromMenu),
+            keyEquivalent: ""
+        )
+        checkUpdates.target = self
+
         let menu = NSMenu()
         menu.addItem(toggle)
+        menu.addItem(.separator())
+        menu.addItem(checkUpdates)
         menu.addItem(.separator())
         menu.addItem(quit)
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
@@ -257,5 +290,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showSettings()
             }
         }
+    }
+}
+
+// MARK: Menu item validation
+
+extension AppDelegate: NSMenuItemValidation {
+    /// The update item only makes sense when the updater exists (packaged
+    /// bundle); everything else targeted here stays enabled.
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForUpdatesFromMenu) {
+            return updatesController?.isAvailable == true
+        }
+        return true
     }
 }

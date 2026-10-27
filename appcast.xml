@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+  <channel>
+    <title>AwakeKit</title>
+    <link>https://github.com/peninsulagiftbox/AwakeKit</link>
+    <description>AwakeKit 更新推送</description>
+    <language>zh-cn</language>
+  </channel>
+</rss>
